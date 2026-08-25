@@ -23,6 +23,8 @@ class Transaction:
     source_file: str
     source_page: int
     extraction_method: str
+    operator: str = ""
+    transaction_org_code: str = ""
 
 
 @dataclass(slots=True)
