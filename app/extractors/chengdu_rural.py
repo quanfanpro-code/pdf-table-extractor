@@ -8,6 +8,7 @@ import pdfplumber
 from app.models import StatementExtraction, Transaction
 
 
+EXTRACTOR_LABEL = "成都农商行"
 BANK_NAME = "成都农村商业银行股份有限公司"
 EXPECTED_HEADERS = [
     "序号",

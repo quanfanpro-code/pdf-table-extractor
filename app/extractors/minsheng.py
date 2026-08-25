@@ -8,6 +8,7 @@ import pdfplumber
 from app.models import StatementExtraction, Transaction
 
 
+EXTRACTOR_LABEL = "民生银行"
 COLUMN_BOUNDS = (0, 61, 200, 234, 311, 385, 459, 498, 545, 711, 843)
 DATE_PATTERN = re.compile(r"^\d{4}/\d{2}/\d{2}$")
 

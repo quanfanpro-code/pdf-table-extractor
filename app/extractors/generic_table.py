@@ -7,6 +7,7 @@ import pdfplumber
 from app.models import StatementExtraction, Transaction
 
 
+EXTRACTOR_LABEL = "普通表格"
 STANDARD_HEADERS = {
     "交易时间": "occurred_at",
     "交易日期": "occurred_at",

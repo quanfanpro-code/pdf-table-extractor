@@ -8,6 +8,7 @@ import pdfplumber
 from app.models import StatementExtraction, Transaction
 
 
+EXTRACTOR_LABEL = "华夏银行"
 DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}")
 AMOUNT_PATTERN = re.compile(r"^[0-9,]+\.\d{2}$")
 INTEGER_PATTERN = re.compile(r"^\d+$")

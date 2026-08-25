@@ -4,10 +4,7 @@ from typing import Callable
 
 from app.config import ModelSettings
 from app.extractors.ai_vision import extract_ai, safe_request_error
-from app.extractors.chengdu_rural import extract_chengdu_rural
-from app.extractors.generic_table import extract_generic_table
-from app.extractors.huaxia import extract_huaxia
-from app.extractors.minsheng import extract_minsheng
+from app.extractors.registry import iter_local_extractors
 from app.models import ProcessedStatement, StatementExtraction, ValidationReport
 from app.validators import validate_statement
 
@@ -38,14 +35,7 @@ def process_pdf(
     source_path = Path(pdf_path)
     attempts: list[tuple[str, Extractor]] = []
     if not force_ai:
-        attempts.extend(
-            [
-                ("普通表格", extract_generic_table),
-                ("成都农商行", extract_chengdu_rural),
-                ("民生银行", extract_minsheng),
-                ("华夏银行", extract_huaxia),
-            ]
-        )
+        attempts.extend(iter_local_extractors())
 
     if _model_is_ready(settings):
         assert settings is not None
