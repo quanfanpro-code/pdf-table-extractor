@@ -36,7 +36,11 @@ def parse_footer(text: str) -> tuple[int | None, Decimal | None, Decimal | None]
     )
 
 
-def _column_index(x0: float) -> int | None:
+def _column_index(x0: float, x1: float | None = None) -> int | None:
+    if x1 is not None and COLUMN_BOUNDS[3] <= x0 < COLUMN_BOUNDS[7]:
+        for index in range(3, 7):
+            if COLUMN_BOUNDS[index] <= x1 < COLUMN_BOUNDS[index + 1]:
+                return index
     for index in range(len(COLUMN_BOUNDS) - 1):
         if COLUMN_BOUNDS[index] <= x0 < COLUMN_BOUNDS[index + 1]:
             return index
@@ -89,7 +93,7 @@ def parse_page_words(
             top = float(item.get("top", 0))
             if not start_top <= top < next_top:
                 continue
-            column = _column_index(float(item.get("x0", -1)))
+            column = _column_index(float(item.get("x0", -1)), float(item.get("x1", -1)))
             if column is not None:
                 cells[column].append(item)
 

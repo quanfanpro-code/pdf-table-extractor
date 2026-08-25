@@ -8,6 +8,10 @@ def word(text: str, x0: float, top: float) -> dict:
     return {"text": text, "x0": x0, "x1": x0 + len(text) * 7, "top": top, "bottom": top + 7}
 
 
+def right_aligned_word(text: str, x0: float, x1: float, top: float) -> dict:
+    return {"text": text, "x0": x0, "x1": x1, "top": top, "bottom": top + 7}
+
+
 def test_column_assignment_keeps_wrapped_fields_together():
     words = [
         word("2026/02/12", 22, 111),
@@ -69,6 +73,32 @@ def test_real_counterparty_left_edge_is_not_joined_to_serial_number():
 
     assert rows[0].serial_number == "56500202503050007376116"
     assert rows[0].counterparty == "智荟界(成都)商业零售有限公司/128918017410000"
+
+
+def test_long_right_aligned_amounts_stay_in_their_money_columns():
+    words = [
+        word("2024/11/26", 22, 111),
+        word("09:54:59", 22, 118),
+        word("大额交易", 61.1, 111),
+        right_aligned_word("3,100,000.00", 304.45, 346.45, 111),
+        right_aligned_word("1,000,000.00", 378.30, 420.30, 111),
+        right_aligned_word("1,174,776.30", 452.16, 494.16, 111),
+        word("5370120241126N132048190", 498.16, 111),
+    ]
+
+    rows = parse_page_words(
+        words,
+        page_number=1,
+        source_file="样本.pdf",
+        account_number="650103833",
+        period_start=date(2024, 11, 1),
+        period_end=date(2024, 11, 30),
+        page_height=595,
+    )
+
+    assert rows[0].debit == Decimal("3100000.00")
+    assert rows[0].credit == Decimal("1000000.00")
+    assert rows[0].balance == Decimal("1174776.30")
 
 
 def test_next_date_starts_a_new_transaction():
