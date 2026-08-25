@@ -83,3 +83,29 @@ def test_footer_totals_are_parsed_with_pdf_underscores():
     assert count == 3
     assert debit == Decimal("1234.50")
     assert credit == Decimal("20.00")
+
+
+def test_horizontal_footer_line_is_not_joined_into_last_transaction():
+    words = [
+        word("2026/02/28", 22, 531),
+        word("16:00:00", 22, 538),
+        word("最后一笔", 61.1, 531),
+        word("0.00", 332.4, 531),
+        word("10.00", 392.3, 531),
+        word("10.00", 459.2, 531),
+        word("10003", 498.2, 531),
+        word("_" * 120, 20, 564),
+        word("打印渠道:企业网银", 20, 574),
+    ]
+
+    rows = parse_page_words(
+        words,
+        page_number=1,
+        source_file="样本.pdf",
+        account_number="650103833",
+        period_start=date(2026, 2, 1),
+        period_end=date(2026, 2, 28),
+        page_height=595,
+    )
+
+    assert rows[0].occurred_at == datetime(2026, 2, 28, 16, 0, 0)

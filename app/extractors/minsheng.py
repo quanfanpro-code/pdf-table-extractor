@@ -46,8 +46,10 @@ def _column_index(x0: float) -> int | None:
 def _footer_top(words: list[dict], page_height: float) -> float:
     candidates = []
     for item in words:
-        compact = _compact(str(item.get("text", "")))
-        if "借方发生总额" in compact or compact.startswith("打印渠道"):
+        text = str(item.get("text", "")).strip()
+        compact = _compact(text)
+        is_horizontal_line = len(text) >= 20 and set(text) == {"_"}
+        if is_horizontal_line or "借方发生总额" in compact or compact.startswith("打印渠道"):
             candidates.append(float(item["top"]))
     return min(candidates) if candidates else page_height - 35
 
