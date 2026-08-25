@@ -25,3 +25,8 @@ def test_real_minsheng_batch_matches_all_statement_totals():
     assert sum(report.status == "零交易通过" for report in reports) == 2
     assert all(report.status in {"通过", "零交易通过"} for report in reports)
     assert all(not report.errors for report in reports)
+
+    march = next(item for item in extractions if item and item.source_path.name == "东方荟界2025.3民生银行流水.pdf")
+    first = march.transactions[0]
+    assert first.serial_number == "56500202503050007376116"
+    assert first.counterparty == "智荟界(成都)商业零售有限公司/128918017410000"

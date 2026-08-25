@@ -43,6 +43,34 @@ def test_column_assignment_keeps_wrapped_fields_together():
     assert rows[0].credit == Decimal("1008.00")
 
 
+def test_real_counterparty_left_edge_is_not_joined_to_serial_number():
+    words = [
+        word("2025/03/05", 22, 111),
+        word("18:20:35", 22, 118),
+        word("入资款", 61.1, 111),
+        word("0.00", 332.4, 111),
+        word("200,000.00", 385.3, 111),
+        word("200,000.00", 459.2, 111),
+        word("565002025030", 498.16, 111),
+        word("50007376116", 498.16, 118),
+        word("智荟界(成都)商业零售有限公司/128918017410000", 545.95, 111),
+        word("招商银行股份有限公司成都成华支行", 711.04, 111),
+    ]
+
+    rows = parse_page_words(
+        words,
+        page_number=1,
+        source_file="样本.pdf",
+        account_number="650103833",
+        period_start=date(2025, 3, 1),
+        period_end=date(2025, 3, 31),
+        page_height=595,
+    )
+
+    assert rows[0].serial_number == "56500202503050007376116"
+    assert rows[0].counterparty == "智荟界(成都)商业零售有限公司/128918017410000"
+
+
 def test_next_date_starts_a_new_transaction():
     words = [
         word("2026/02/12", 22, 111),

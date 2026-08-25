@@ -8,7 +8,7 @@ import pdfplumber
 from app.models import StatementExtraction, Transaction
 
 
-COLUMN_BOUNDS = (0, 61, 200, 234, 311, 385, 459, 498, 546, 711, 843)
+COLUMN_BOUNDS = (0, 61, 200, 234, 311, 385, 459, 498, 545, 711, 843)
 DATE_PATTERN = re.compile(r"^\d{4}/\d{2}/\d{2}$")
 
 
