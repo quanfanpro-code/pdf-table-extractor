@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+from unicodedata import east_asian_width
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -78,10 +79,14 @@ def _apply_header(sheet, column_count: int) -> None:
     sheet.sheet_view.showGridLines = False
 
 
+def _display_width(value: object) -> int:
+    return sum(2 if east_asian_width(character) in {"W", "F", "A"} else 1 for character in str(value or ""))
+
+
 def _fit_columns(sheet, minimum: int = 10, maximum: int = 40) -> None:
     for column in range(1, sheet.max_column + 1):
         width = max(
-            (len(str(sheet.cell(row, column).value or "")) for row in range(1, sheet.max_row + 1)),
+            (_display_width(sheet.cell(row, column).value) for row in range(1, sheet.max_row + 1)),
             default=minimum,
         )
         sheet.column_dimensions[get_column_letter(column)].width = min(max(width + 2, minimum), maximum)

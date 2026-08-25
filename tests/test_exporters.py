@@ -23,13 +23,13 @@ def make_transaction(source_file: str) -> Transaction:
         serial_number="12345678901234567890",
         counterparty="测试公司/0000123",
         counterparty_bank="测试银行",
-        bank_name="测试银行",
+        bank_name="中国民生银行",
         account_number="00001234",
         period_start=date(2026, 1, 1),
         period_end=date(2026, 1, 31),
         source_file=source_file,
         source_page=1,
-        extraction_method="测试读取",
+        extraction_method="民生银行固定栏目",
     )
 
 
@@ -37,12 +37,12 @@ def make_statement(path: Path, status: str) -> ProcessedStatement:
     transaction = make_transaction(path.name)
     extraction = StatementExtraction(
         source_path=path,
-        bank_name="测试银行",
+        bank_name="中国民生银行",
         account_number="00001234",
         period_start=date(2026, 1, 1),
         period_end=date(2026, 1, 31),
         page_count=1,
-        extraction_method="测试读取",
+        extraction_method="民生银行固定栏目",
         transactions=[transaction],
         declared_count=1,
         declared_debit=Decimal("0.00"),
@@ -105,3 +105,12 @@ def test_existing_result_is_not_overwritten(tmp_path):
     assert first.exists()
     assert second.exists()
     assert second.stem.endswith("_v1")
+
+
+def test_chinese_headers_and_values_have_readable_column_widths(tmp_path):
+    path = write_batch_workbook(sample_batch(), tmp_path, now=FIXED_TIME)
+    book = load_workbook(path)
+
+    assert book["提取汇总"].column_dimensions["C"].width >= 14
+    assert book["提取汇总"].column_dimensions["J"].width >= 14
+    assert book["提取汇总"].column_dimensions["O"].width >= 18
