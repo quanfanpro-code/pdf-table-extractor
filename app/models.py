@@ -63,3 +63,22 @@ class ProcessedStatement:
 @dataclass(slots=True)
 class BatchResult:
     statements: list[ProcessedStatement]
+
+    @property
+    def approved_transactions(self) -> list[Transaction]:
+        rows = [
+            transaction
+            for statement in self.statements
+            if statement.validation.status in {"通过", "零交易通过"}
+            and statement.extraction is not None
+            for transaction in statement.extraction.transactions
+        ]
+        return sorted(
+            rows,
+            key=lambda item: (
+                item.occurred_at,
+                item.source_file.casefold(),
+                item.source_page,
+                item.serial_number,
+            ),
+        )
