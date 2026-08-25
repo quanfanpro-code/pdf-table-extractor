@@ -56,6 +56,7 @@ def test_text_failure_can_fall_back_to_ai(monkeypatch):
         return extractor
 
     monkeypatch.setattr(routing, "extract_generic_table", no_result("普通表格"))
+    monkeypatch.setattr(routing, "extract_chengdu_rural", no_result("成都农商行"))
     monkeypatch.setattr(routing, "extract_minsheng", no_result("民生银行"))
     monkeypatch.setattr(routing, "extract_huaxia", no_result("华夏银行"))
 
@@ -67,12 +68,13 @@ def test_text_failure_can_fall_back_to_ai(monkeypatch):
 
     result = routing.process_pdf(Path("样本.pdf"), MODEL_SETTINGS)
 
-    assert calls == ["普通表格", "民生银行", "华夏银行", "AI"]
+    assert calls == ["普通表格", "成都农商行", "民生银行", "华夏银行", "AI"]
     assert result.validation.status == "通过"
 
 
 def test_missing_model_settings_is_reported_instead_of_silently_skipped(monkeypatch):
     monkeypatch.setattr(routing, "extract_generic_table", lambda _path: None)
+    monkeypatch.setattr(routing, "extract_chengdu_rural", lambda _path: None)
     monkeypatch.setattr(routing, "extract_minsheng", lambda _path: None)
     monkeypatch.setattr(routing, "extract_huaxia", lambda _path: None)
 
