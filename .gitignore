@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+提取结果/
+pdf_hash_before.txt
+pdf_hash_after.txt
