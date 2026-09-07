@@ -1,4 +1,4 @@
-from decimal import Decimal
+﻿from decimal import Decimal
 
 from app.models import StatementExtraction, ValidationReport
 
@@ -49,6 +49,25 @@ def validate_statement(extraction: StatementExtraction) -> ValidationReport:
                     f"应为={expected_balance:.2f}，实际={transaction.balance:.2f}"
                 )
 
+
+    control_checks = {}
+    def check(label, expected, actual, reason):
+        difference = actual - expected if expected is not None and actual is not None else None
+        state = "未检查" if difference is None else ("通过" if difference == 0 else "不一致")
+        control_checks[label] = dict(status=state, expected=expected, actual=actual, difference=difference,
+                                     reason=reason if difference is None else "")
+        if state == "不一致":
+            errors.append(f"{extraction.source_path.name}：{label}不一致，应为={expected:.2f}，实际={actual:.2f}，差额={difference:.2f}")
+
+    opening, closing = extraction.opening_balance, extraction.closing_balance
+    check("期初期末", opening - actual_debit + actual_credit if opening is not None else None,
+          closing, "缺少原件期初或期末余额")
+    first = transactions[0] if transactions else None
+    last = transactions[-1] if transactions else None
+    check("首笔余额", opening - first.debit + first.credit if opening is not None and first else None,
+          first.balance if first else None, "缺少原件期初余额或本期没有交易")
+    check("末笔余额", closing, last.balance if last else None, "缺少原件期末余额或本期没有交易")
+
     if errors:
         status = "核对失败"
     elif actual_count == 0:
@@ -62,5 +81,6 @@ def validate_statement(extraction: StatementExtraction) -> ValidationReport:
         actual_debit=actual_debit,
         actual_credit=actual_credit,
         balance_break_rows=balance_break_rows,
+        control_checks=control_checks,
         errors=errors,
     )

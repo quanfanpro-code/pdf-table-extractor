@@ -1,4 +1,4 @@
-import re
+﻿import re
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -160,6 +160,7 @@ def parse_chengdu_rural_pages(
         declared_debit=declared_debit,
         declared_credit=declared_credit,
         errors=errors,
+        currency={"人民币": "CNY", "美元": "USD", "港币": "HKD", "欧元": "EUR"}.get(currency_text, currency_text) if len(currencies) == 1 else "",
     )
 
 

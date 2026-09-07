@@ -1,4 +1,4 @@
-from datetime import date, datetime
+﻿from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -75,7 +75,7 @@ def test_workbook_contains_detail_and_summary(tmp_path):
     path = write_batch_workbook(sample_batch(), tmp_path, now=FIXED_TIME)
     book = load_workbook(path, data_only=False)
 
-    assert book.sheetnames == ["流水明细", "提取汇总"]
+    assert book.sheetnames == ["流水明细", "提取汇总", "期间衔接检查"]
     assert book["流水明细"]["B2"].value == "00001234"
     assert book["流水明细"]["D2"].value == "00000001"
     assert book["流水明细"]["J2"].value == "12345678901234567890"

@@ -1,4 +1,4 @@
-import re
+﻿import re
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -6,6 +6,7 @@ from pathlib import Path
 import pdfplumber
 
 from app.models import StatementExtraction, Transaction
+from app.对账单控制信息 import enrich_from_pages
 
 
 EXTRACTOR_LABEL = "中国银行"
@@ -150,8 +151,6 @@ def parse_boc_pages(
         declared_debit += page_debit
         declared_credit += page_credit
 
-    if not parsed_rows:
-        raise ValueError("未识别到中国银行交易明细")
 
     extraction_method = "中国银行固定版式"
     transactions = []
@@ -181,7 +180,7 @@ def parse_boc_pages(
             )
         )
 
-    return StatementExtraction(
+    return enrich_from_pages(StatementExtraction(
         source_path=source_path,
         bank_name=BANK_NAME,
         account_number=account_number,
@@ -194,7 +193,7 @@ def parse_boc_pages(
         declared_debit=declared_debit,
         declared_credit=declared_credit,
         errors=errors,
-    )
+    ), page_texts)
 
 
 def extract_boc(pdf_path: Path) -> StatementExtraction | None:

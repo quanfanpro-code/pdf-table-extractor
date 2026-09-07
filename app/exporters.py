@@ -1,4 +1,4 @@
-from datetime import datetime
+﻿from datetime import datetime
 from pathlib import Path
 from unicodedata import east_asian_width
 
@@ -7,6 +7,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from app.models import BatchResult
+from app.对账单控制信息 import LINK_HEADERS, statement_links
 
 
 DETAIL_HEADERS = [
@@ -47,6 +48,9 @@ SUMMARY_HEADERS = [
     "连续余额",
     "提取方式",
     "失败原因",
+    "币种", "原件期初余额", "期初来源页", "原件期末余额", "期末来源页",
+    "原件账期开始", "原件账期结束", "期初期末核对", "期初期末差额",
+    "首笔余额核对", "首笔余额差额", "末笔余额核对", "末笔余额差额", "来源完整路径",
 ]
 
 HEADER_FILL = PatternFill("solid", fgColor="1F4E78")
@@ -92,9 +96,9 @@ def _fit_columns(sheet, minimum: int = 10, maximum: int = 40) -> None:
         sheet.column_dimensions[get_column_letter(column)].width = min(max(width + 2, minimum), maximum)
 
 
-def _write_details(sheet, batch: BatchResult) -> None:
+def _write_details(sheet, batch: BatchResult, transactions=None) -> None:
     sheet.append(DETAIL_HEADERS)
-    for transaction in batch.approved_transactions:
+    for transaction in (batch.approved_transactions if transactions is None else transactions):
         sheet.append(
             [
                 transaction.bank_name,
@@ -162,6 +166,18 @@ def _write_summary(sheet, batch: BatchResult) -> None:
                 balance_status,
                 extraction.extraction_method if extraction else "",
                 "；".join(validation.errors),
+                extraction.currency if extraction else "",
+                extraction.opening_balance if extraction else None,
+                extraction.opening_page if extraction else None,
+                extraction.closing_balance if extraction else None,
+                extraction.closing_page if extraction else None,
+                extraction.statement_start if extraction else None,
+                extraction.statement_end if extraction else None,
+                *[value for name in ("期初期末", "首笔余额", "末笔余额")
+                  for value in (validation.control_checks.get(name, {}).get("status", "未检查") +
+                                ("，" + validation.control_checks[name]["reason"] if validation.control_checks.get(name, {}).get("reason") else ""),
+                                validation.control_checks.get(name, {}).get("difference"))],
+                str(statement.source_path),
             ]
         )
         row = sheet.max_row
@@ -177,6 +193,10 @@ def _write_summary(sheet, batch: BatchResult) -> None:
     for row in range(2, sheet.max_row + 1):
         sheet.cell(row, 4).number_format = "@"
         for column in (5, 6):
+            sheet.cell(row, column).number_format = "yyyy-mm-dd"
+        for column in (18, 20, 25, 27, 29):
+            sheet.cell(row, column).number_format = "#,##0.00"
+        for column in (22, 23):
             sheet.cell(row, column).number_format = "yyyy-mm-dd"
         for column in (10, 11, 12, 13):
             sheet.cell(row, column).number_format = "#,##0.00"
@@ -199,11 +219,28 @@ def write_batch_workbook(
     summary_sheet = workbook.create_sheet("提取汇总")
     _write_details(detail_sheet, batch)
     _write_summary(summary_sheet, batch)
+    links = workbook.create_sheet("期间衔接检查")
+    links.append(LINK_HEADERS)
+    for record in statement_links(batch):
+        links.append([record[key] for key in LINK_HEADERS])
+    for row in links.iter_rows(min_row=2):
+        row[1].number_format = "@"
+        for cell in row[5:9]:
+            cell.number_format = "yyyy-mm-dd"
+        for cell in row[9:12]:
+            cell.number_format = "#,##0.00"
+    _apply_header(links, len(LINK_HEADERS))
+    _fit_columns(links, maximum=55)
+    pending = [tx for s in batch.statements if s.extraction is not None
+               and any(check["status"] == "不一致" for check in s.validation.control_checks.values())
+               for tx in s.extraction.transactions]
+    if pending:
+        _write_details(workbook.create_sheet("待核查流水"), batch, pending)
     workbook.save(output_path)
 
     checked = load_workbook(output_path, read_only=True, data_only=False)
     try:
-        if checked.sheetnames != ["流水明细", "提取汇总"]:
+        if checked.sheetnames[:3] != ["流水明细", "提取汇总", "期间衔接检查"]:
             raise ValueError("生成的工作簿工作表不完整")
     finally:
         checked.close()

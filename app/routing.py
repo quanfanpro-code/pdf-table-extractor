@@ -1,4 +1,4 @@
-from decimal import Decimal
+﻿from decimal import Decimal
 from pathlib import Path
 from typing import Callable
 
@@ -7,6 +7,7 @@ from app.extractors.ai_vision import extract_ai, safe_request_error
 from app.extractors.registry import iter_local_extractors
 from app.models import ProcessedStatement, StatementExtraction, ValidationReport
 from app.validators import validate_statement
+from app.对账单控制信息 import enrich_from_pages, read_control_pages, preserve_controls
 
 
 Extractor = Callable[[Path], StatementExtraction | None]
@@ -45,6 +46,7 @@ def process_pdf(
     last_extraction: StatementExtraction | None = None
     last_validation: ValidationReport | None = None
 
+    control_pages = None
     for label, extractor in attempts:
         try:
             extraction = extractor(source_path)
@@ -55,6 +57,10 @@ def process_pdf(
         if extraction is None:
             continue
 
+        if control_pages is None:
+            control_pages = read_control_pages(source_path)
+        enrich_from_pages(extraction, control_pages)
+        preserve_controls(extraction, last_extraction)
         validation = validate_statement(extraction)
         if validation.status in PASSED_STATUSES:
             return ProcessedStatement(source_path, extraction, validation)

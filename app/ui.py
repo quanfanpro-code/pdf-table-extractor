@@ -1,4 +1,4 @@
-import os
+﻿import os
 import threading
 from pathlib import Path
 from tkinter import filedialog, messagebox
@@ -310,6 +310,14 @@ class PDFExtractorApp:
         zero = sum(item.validation.status == "零交易通过" for item in batch.statements)
         failed = sum(item.validation.status == "核对失败" for item in batch.statements)
         self._log(f"处理完成：通过 {passed} 份，零交易 {zero} 份，失败 {failed} 份。")
+        from app.对账单控制信息 import statement_links
+        links = statement_links(batch)
+        unchecked = sum("未检查" in row["检查结果"] for row in links)
+        issues = sum(any(word in row["检查结果"] for word in ("缺期", "重叠", "不一致", "倒置")) for row in links)
+        self._log(f"期间衔接另行检查，有问题 {issues} 项，未检查 {unchecked} 项，详见期间衔接检查表。")
+        missing_controls = sum(any(check["status"] == "未检查" for check in item.validation.control_checks.values()) for item in batch.statements)
+        if missing_controls:
+            self._log(f"{missing_controls} 份存在未执行的控制余额项目，详见提取汇总。")
         self._log(f"输出文件：{output_path}")
         for statement in batch.statements:
             if statement.validation.status == "核对失败":

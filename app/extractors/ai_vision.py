@@ -1,4 +1,4 @@
-import base64
+﻿import base64
 import hashlib
 import json
 import re
@@ -41,7 +41,10 @@ EXTRACTION_PROMPT = """请读取这张银行对账单图片，只抄录图片中
 账单交易笔数：
 账单借方合计：
 账单贷方合计：
-不要把本页小计冒充账单合计。"""
+币种：
+账单期初余额：
+账单期末余额：
+不要把本页小计冒充账单合计。期初、期末余额及账期必须原件明确列示，不得用交易推算，不得把承前页余额当账单期初（完整账单第一页除外）。"""
 
 
 @dataclass(slots=True)
@@ -273,6 +276,9 @@ def _metadata_from_content(content: str) -> dict[str, object]:
         "account_number": r"账号[：:]\s*([^\n|]+)",
         "period_start": r"账单开始日期[：:]\s*(\d{4}[-/]\d{2}[-/]\d{2})",
         "period_end": r"账单结束日期[：:]\s*(\d{4}[-/]\d{2}[-/]\d{2})",
+        "opening_balance": r"账单期初余额[：:]\s*([-+0-9,.]+)",
+        "closing_balance": r"账单期末余额[：:]\s*([-+0-9,.]+)",
+        "currency": r"币种[：:]\s*([^\n|]+)",
         "declared_count": r"账单交易笔数[：:]\s*(\d+)",
         "declared_debit": r"账单借方合计[：:]\s*([0-9,.]+)",
         "declared_credit": r"账单贷方合计[：:]\s*([0-9,.]+)",
@@ -355,7 +361,15 @@ def extract_ai(
     for page_index in range(start_page, page_count):
         try:
             content = request_page(_render_page(source_path, page_index), settings)
-            metadata = _merge_metadata(metadata, _metadata_from_content(content))
+            incoming = _metadata_from_content(content)
+            for key in ("opening_balance", "closing_balance", "currency", "period_start", "period_end"):
+                if key in incoming:
+                    if key in metadata and str(metadata[key]) != str(incoming[key]):
+                        errors.append(f"第{page_index + 1}页{key}与其他页不一致")
+                        incoming[key] = metadata[key]
+                    else:
+                        incoming[key + "_page"] = page_index + 1
+            metadata = _merge_metadata(metadata, incoming)
             header, rows = _rows_from_content(content, header)
             stored_rows.extend({"page": page_index + 1, "cells": row} for row in rows)
             save_progress(
@@ -436,4 +450,12 @@ def extract_ai(
         declared_debit=declared_debit,
         declared_credit=declared_credit,
         errors=errors,
+        opening_balance=_decimal_or_none(metadata.get("opening_balance")),
+        closing_balance=_decimal_or_none(metadata.get("closing_balance")),
+        opening_page=metadata.get("opening_balance_page"),
+        closing_page=metadata.get("closing_balance_page"),
+        currency={"人民币": "CNY", "RMB": "CNY", "美元": "USD", "港币": "HKD", "欧元": "EUR"}.get(str(metadata.get("currency", "")).strip(), str(metadata.get("currency", "")).strip()),
+        statement_start=_date(metadata.get("period_start")),
+        statement_end=_date(metadata.get("period_end")),
+        period_page=metadata.get("period_start_page"),
     )

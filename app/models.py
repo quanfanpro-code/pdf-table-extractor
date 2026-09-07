@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+﻿from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -41,6 +41,14 @@ class StatementExtraction:
     declared_debit: Decimal | None
     declared_credit: Decimal | None
     errors: list[str] = field(default_factory=list)
+    opening_balance: Decimal | None = None
+    closing_balance: Decimal | None = None
+    opening_page: int | None = None
+    closing_page: int | None = None
+    statement_start: date | None = None
+    statement_end: date | None = None
+    period_page: int | None = None
+    currency: str = ""
 
 
 @dataclass(slots=True)
@@ -51,6 +59,7 @@ class ValidationReport:
     actual_credit: Decimal
     balance_break_rows: list[int] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    control_checks: dict = field(default_factory=dict)
 
 
 @dataclass(slots=True)
