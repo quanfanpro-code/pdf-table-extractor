@@ -1,4 +1,4 @@
-﻿import base64
+import base64
 import hashlib
 import json
 import re
@@ -109,8 +109,10 @@ def _post_chat(
                     "messages": messages,
                     "max_tokens": 8192,
                     "temperature": 0,
+                    "chat_template_kwargs": {"enable_thinking": False},
                 },
                 timeout=timeout,
+                proxies={"http": None, "https": None},
             )
             response.raise_for_status()
             return _message_content(response.json())
@@ -153,7 +155,12 @@ def check_model_capabilities(settings: ModelSettings) -> CapabilityReport:
 
     models_url = build_models_url(settings.api_url)
     try:
-        response = requests.get(url=models_url, headers=_headers(settings), timeout=15)
+        response = requests.get(
+            url=models_url,
+            headers=_headers(settings),
+            timeout=15,
+            proxies={"http": None, "https": None},
+        )
         report.models_endpoint_available = response.status_code < 400
         if report.models_endpoint_available:
             report.endpoint_reachable = True
@@ -175,9 +182,9 @@ def check_model_capabilities(settings: ModelSettings) -> CapabilityReport:
         report.messages.append(f"模型文字调用失败：{safe_request_error(exc, settings)}")
         return report
 
-    tiny_jpeg = base64.b64decode(
-        "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAEf/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABBQJ//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPwF//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPwF//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQAGPwJ//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPyF//9oADAMBAAIAAwAAABD/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAEDAQE/EH//xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAECAQE/EH//xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAE/EH//2Q=="
-    )
+    tiny_buffer = BytesIO()
+    Image.new("RGB", (8, 8), "white").save(tiny_buffer, format="JPEG", quality=90)
+    tiny_jpeg = tiny_buffer.getvalue()
     try:
         text = request_page(
             tiny_jpeg,
@@ -343,6 +350,7 @@ def extract_ai(
     settings: ModelSettings,
     resume: bool = True,
 ) -> StatementExtraction | None:
+    from app.progress import report_progress
     source_path = Path(pdf_path)
     progress_path = Path(str(source_path) + ".ai-progress.json")
     saved = load_progress(progress_path, source_path) if resume else None
@@ -360,6 +368,7 @@ def extract_ai(
 
     for page_index in range(start_page, page_count):
         try:
+            report_progress(f"{source_path.name}：视觉模型，第 {page_index + 1}/{page_count} 页，等待模型返回")
             content = request_page(_render_page(source_path, page_index), settings)
             incoming = _metadata_from_content(content)
             for key in ("opening_balance", "closing_balance", "currency", "period_start", "period_end"):
@@ -380,6 +389,7 @@ def extract_ai(
                 rows=stored_rows,
                 metadata=metadata,
             )
+            report_progress(f"{source_path.name}：视觉模型，第 {page_index + 1}/{page_count} 页已保存")
         except (OSError, RuntimeError, ValueError) as exc:
             errors.append(f"{source_path.name}：第{page_index + 1}页模型读取失败：{safe_request_error(exc, settings)}")
             save_progress(

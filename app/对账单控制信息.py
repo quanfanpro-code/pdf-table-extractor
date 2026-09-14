@@ -39,10 +39,10 @@ def enrich_from_pages(extraction, pages):
         "closing_balance": rf"(?:本对账期末余额|期末余额|期末结余|账单期末余额)\s*[：:]?\s*{AMOUNT}",
         "statement_start": rf"(?:账单开始日期|起始日期|开始日期|对账开始日)\s*[：:]?\s*{DATE}",
         "statement_end": rf"(?:账单结束日期|截止日期|结束日期|对账结束日)\s*[：:]?\s*{DATE}",
-        "currency": r"币种\s*[：:]?\s*(人民币(?:\s*\(CNY\))?|CNY|RMB|美元|USD|港币|HKD|欧元|EUR)",
+        "currency": r"(?:币种|货币)\s*[：:]?\s*(人民币(?:\s*\(CNY\))?|CNY|RMB|美元|USD|港币|HKD|欧元|EUR)",
     }
     for page_no, text in enumerate(pages, 1):
-        period = re.search(rf"起止日期\s*[：:]?\s*{DATE}\s*(?:-|至|到)\s*{DATE}", text)
+        period = re.search(rf"(?:起止日期|账单所属期间|对账期间)\s*[：:]?\s*{DATE}(?:\s*(?:-|至|到)\s*|\s+){DATE}", text)
         if period:
             try:
                 start, end = _date(period.group(1)), _date(period.group(2))
@@ -56,6 +56,8 @@ def enrich_from_pages(extraction, pages):
                 extraction.errors.append(f"第{page_no}页起止日期无效")
         for key, pattern in patterns.items():
             matches = list(re.finditer(pattern, text))
+            if key == "opening_balance" and page_no == 1 and not matches:
+                matches = list(re.finditer(rf"上页余额\s*[：:]?\s*{AMOUNT}", text))
             # 中国银行首张页面的承前页余额是本账期期初，其余页不能当期初。
             if key == "opening_balance" and page_no == 1 and not matches and "中国银行" in text:
                 matches = list(re.finditer(rf"承前页余额\s*[：:]?\s*{AMOUNT}", text))

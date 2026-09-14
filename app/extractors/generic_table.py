@@ -59,7 +59,7 @@ def _decimal(value: str) -> Decimal:
 
 
 def _datetime(value: str) -> datetime:
-    for pattern in ("%Y/%m/%d %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y/%m/%d", "%Y-%m-%d"):
+    for pattern in ("%Y/%m/%d %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y/%m/%d", "%Y-%m-%d", "%Y%m%d", "%Y%m%d %H:%M:%S"):
         try:
             return datetime.strptime(value, pattern)
         except ValueError:

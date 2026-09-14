@@ -30,6 +30,7 @@ DETAIL_HEADERS = [
     "来源文件",
     "来源页码",
     "提取方式",
+    "来源页内行序",
 ]
 SUMMARY_HEADERS = [
     "来源文件",
@@ -51,6 +52,7 @@ SUMMARY_HEADERS = [
     "币种", "原件期初余额", "期初来源页", "原件期末余额", "期末来源页",
     "原件账期开始", "原件账期结束", "期初期末核对", "期初期末差额",
     "首笔余额核对", "首笔余额差额", "末笔余额核对", "末笔余额差额", "来源完整路径",
+    "核对依据", "核对提示",
 ]
 
 HEADER_FILL = PatternFill("solid", fgColor="1F4E78")
@@ -120,6 +122,7 @@ def _write_details(sheet, batch: BatchResult, transactions=None) -> None:
                 transaction.source_file,
                 transaction.source_page,
                 transaction.extraction_method,
+                transaction.source_row,
             ]
         )
 
@@ -178,6 +181,8 @@ def _write_summary(sheet, batch: BatchResult) -> None:
                                 ("，" + validation.control_checks[name]["reason"] if validation.control_checks.get(name, {}).get("reason") else ""),
                                 validation.control_checks.get(name, {}).get("difference"))],
                 str(statement.source_path),
+                validation.validation_basis,
+                "；".join(validation.warnings),
             ]
         )
         row = sheet.max_row
@@ -232,7 +237,7 @@ def write_batch_workbook(
     _apply_header(links, len(LINK_HEADERS))
     _fit_columns(links, maximum=55)
     pending = [tx for s in batch.statements if s.extraction is not None
-               and any(check["status"] == "不一致" for check in s.validation.control_checks.values())
+               and s.validation.status == "核对失败"
                for tx in s.extraction.transactions]
     if pending:
         _write_details(workbook.create_sheet("待核查流水"), batch, pending)

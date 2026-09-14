@@ -1,5 +1,6 @@
 ﻿import os
 import threading
+import time
 from pathlib import Path
 from tkinter import filedialog, messagebox
 
@@ -31,6 +32,9 @@ class PDFExtractorApp:
         self.paths: list[Path] = []
         self.source_root: Path | None = None
         self.last_output_dir: Path | None = None
+        self._processing_started: float | None = None
+        self._stage_message = ""
+        self._elapsed_timer = None
         self.config = load_app_config()
 
         ctk.set_appearance_mode("System")
@@ -190,6 +194,8 @@ class PDFExtractorApp:
         self.log_box = ctk.CTkTextbox(card, wrap="word", corner_radius=8)
         self.log_box.grid(row=1, column=0, padx=16, pady=(0, 16), sticky="nsew")
         self._log("请选择 PDF 文件或文件夹。")
+        if self.force_ai_var.get():
+            self._log("当前保存为强制视觉模式，会跳过本地读取。关闭“强制使用视觉模型”可先尝试本地文字提取。")
 
     def _change_theme(self, choice: str) -> None:
         modes = {"跟随系统": "System", "浅色": "Light", "深色": "Dark"}
@@ -278,7 +284,13 @@ class PDFExtractorApp:
         self.progress_bar.set(0)
         self.progress_var.set(f"0 / {len(self.paths)}")
         self.status_var.set("正在准备")
-        self._log("开始逐份读取并核对 PDF。")
+        mode = "强制视觉：跳过本地读取" if self.force_ai_var.get() else (
+            "本地优先，核对未通过时自动使用视觉模型" if active_settings else "仅本地读取，未配置视觉模型"
+        )
+        self._log(f"开始逐份读取并核对 PDF。当前模式：{mode}。")
+        self._processing_started = time.monotonic()
+        self._stage_message = "正在准备"
+        self._refresh_elapsed()
         threading.Thread(
             target=self._process_worker,
             args=(active_settings, bool(self.force_ai_var.get())),
@@ -300,11 +312,25 @@ class PDFExtractorApp:
     def _show_progress(self, current: int, total: int, message: str) -> None:
         self.progress_bar.set(current / total if total else 0)
         self.progress_var.set(f"{current} / {total}")
+        self._stage_message = message
         self.status_var.set(message)
-        if current:
-            self._log(message)
+        self._log(message)
+
+    def _refresh_elapsed(self) -> None:
+        if self._processing_started is None:
+            return
+        seconds = int(time.monotonic() - self._processing_started)
+        self.status_var.set(f"{self._stage_message}（已用 {seconds // 60}分{seconds % 60:02d}秒）")
+        self._elapsed_timer = self.root.after(1000, self._refresh_elapsed)
+
+    def _stop_elapsed(self) -> None:
+        self._processing_started = None
+        if self._elapsed_timer is not None:
+            self.root.after_cancel(self._elapsed_timer)
+            self._elapsed_timer = None
 
     def _finish_processing(self, batch, output_path: Path) -> None:
+        self._stop_elapsed()
         self.last_output_dir = output_path.parent
         passed = sum(item.validation.status == "通过" for item in batch.statements)
         zero = sum(item.validation.status == "零交易通过" for item in batch.statements)
@@ -320,6 +346,8 @@ class PDFExtractorApp:
             self._log(f"{missing_controls} 份存在未执行的控制余额项目，详见提取汇总。")
         self._log(f"输出文件：{output_path}")
         for statement in batch.statements:
+            if statement.validation.warnings:
+                self._log(f"{statement.source_path.name}：核对依据={statement.validation.validation_basis}；{'；'.join(statement.validation.warnings)}")
             if statement.validation.status == "核对失败":
                 self._log(f"{statement.source_path.name}：{'；'.join(statement.validation.errors)}")
         self.status_var.set("处理完成")
@@ -327,6 +355,7 @@ class PDFExtractorApp:
         messagebox.showinfo("处理完成", f"Excel 已生成：\n{output_path}")
 
     def _fail_processing(self, message: str) -> None:
+        self._stop_elapsed()
         self._log(f"处理未完成：{message}")
         self.status_var.set("处理失败")
         self.start_button.configure(state="normal", text="开始整理")

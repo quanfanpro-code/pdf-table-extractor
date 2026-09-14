@@ -7,6 +7,7 @@ from app.extractors.ai_vision import extract_ai, safe_request_error
 from app.extractors.registry import iter_local_extractors
 from app.models import ProcessedStatement, StatementExtraction, ValidationReport
 from app.validators import validate_statement
+from app.progress import report_progress
 from app.对账单控制信息 import enrich_from_pages, read_control_pages, preserve_controls
 
 
@@ -48,20 +49,26 @@ def process_pdf(
 
     control_pages = None
     for label, extractor in attempts:
+        report_progress(f"{source_path.name}：正在尝试{label}")
         try:
             extraction = extractor(source_path)
         except Exception as exc:
             message = safe_request_error(exc, settings) if settings else str(exc)
             route_errors.append(f"{source_path.name}：{label}读取失败：{message}")
+            report_progress(route_errors[-1])
             continue
         if extraction is None:
             continue
 
-        if control_pages is None:
-            control_pages = read_control_pages(source_path)
-        enrich_from_pages(extraction, control_pages)
+        if extraction.control_pages is not None:
+            enrich_from_pages(extraction, extraction.control_pages)
+        else:
+            if control_pages is None:
+                control_pages = read_control_pages(source_path)
+            enrich_from_pages(extraction, control_pages)
         preserve_controls(extraction, last_extraction)
         validation = validate_statement(extraction)
+        report_progress(f"{source_path.name}：{label}提取 {validation.actual_count} 笔，{validation.status}")
         if validation.status in PASSED_STATUSES:
             return ProcessedStatement(source_path, extraction, validation)
         last_extraction = extraction

@@ -55,3 +55,17 @@ def test_missing_serial_number_is_rejected(sample_extraction):
 
     assert report.status == "核对失败"
     assert any("第1笔流水号为空" in error for error in report.errors)
+
+
+def test_balances_alone_without_row_coverage_are_insufficient(sample_extraction):
+    sample_extraction.declared_count = None
+    sample_extraction.opening_balance = Decimal(0)
+    sample_extraction.closing_balance = Decimal(75)
+    assert validate_statement(sample_extraction).status == "核对失败"
+
+
+def test_missing_endpoint_disables_balance_alternative(sample_extraction):
+    sample_extraction.text_rows_complete = True
+    sample_extraction.declared_count = None
+    sample_extraction.opening_balance = Decimal(0)
+    assert validate_statement(sample_extraction).status == "核对失败"

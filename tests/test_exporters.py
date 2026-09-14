@@ -75,7 +75,9 @@ def test_workbook_contains_detail_and_summary(tmp_path):
     path = write_batch_workbook(sample_batch(), tmp_path, now=FIXED_TIME)
     book = load_workbook(path, data_only=False)
 
-    assert book.sheetnames == ["流水明细", "提取汇总", "期间衔接检查"]
+    assert book.sheetnames == ["流水明细", "提取汇总", "期间衔接检查", "待核查流水"]
+    assert book["待核查流水"].max_row == 2
+    assert book["待核查流水"]["Q2"].value == "失败.pdf"
     assert book["流水明细"]["B2"].value == "00001234"
     assert book["流水明细"]["D2"].value == "00000001"
     assert book["流水明细"]["J2"].value == "12345678901234567890"

@@ -9,10 +9,12 @@ def validate_statement(extraction: StatementExtraction) -> ValidationReport:
     actual_debit = sum((row.debit for row in transactions), Decimal("0.00"))
     actual_credit = sum((row.credit for row in transactions), Decimal("0.00"))
     errors = list(extraction.errors)
+    warnings = list(extraction.warnings)
+    missing_declarations: list[str] = []
     balance_break_rows: list[int] = []
 
     if extraction.declared_count is None:
-        errors.append(f"{extraction.source_path.name}：未取得对账单声明笔数")
+        missing_declarations.append("未取得对账单声明笔数")
     elif extraction.declared_count != actual_count:
         errors.append(
             f"{extraction.source_path.name}：笔数核对失败，"
@@ -20,7 +22,7 @@ def validate_statement(extraction: StatementExtraction) -> ValidationReport:
         )
 
     if extraction.declared_debit is None:
-        errors.append(f"{extraction.source_path.name}：未取得对账单借方合计")
+        missing_declarations.append("未取得对账单借方合计")
     elif extraction.declared_debit != actual_debit:
         errors.append(
             f"{extraction.source_path.name}：借方合计核对失败，"
@@ -28,7 +30,7 @@ def validate_statement(extraction: StatementExtraction) -> ValidationReport:
         )
 
     if extraction.declared_credit is None:
-        errors.append(f"{extraction.source_path.name}：未取得对账单贷方合计")
+        missing_declarations.append("未取得对账单贷方合计")
     elif extraction.declared_credit != actual_credit:
         errors.append(
             f"{extraction.source_path.name}：贷方合计核对失败，"
@@ -36,7 +38,7 @@ def validate_statement(extraction: StatementExtraction) -> ValidationReport:
         )
 
     for index, transaction in enumerate(transactions, start=1):
-        if not transaction.serial_number.strip():
+        if extraction.serial_number_required and not transaction.serial_number.strip():
             errors.append(f"{extraction.source_path.name}：第{index}笔流水号为空")
 
         if index > 1:
@@ -68,6 +70,21 @@ def validate_statement(extraction: StatementExtraction) -> ValidationReport:
           first.balance if first else None, "缺少原件期初余额或本期没有交易")
     check("末笔余额", closing, last.balance if last else None, "缺少原件期末余额或本期没有交易")
 
+    balance_evidence = (
+        actual_count > 0 and extraction.text_rows_complete
+        and not balance_break_rows and not errors
+        and all(item["status"] == "通过" for item in control_checks.values())
+    )
+    basis = "原件声明笔数及借贷合计"
+    if missing_declarations:
+        if balance_evidence:
+            basis = "全页文字行覆盖、连续余额及原件期初期末余额"
+            warnings.extend(message + "，该项目未检查" for message in missing_declarations)
+            warnings.append("以余额证据替代缺失的声明项目；余额一致不能排除原件本身缺页或净额为零的遗漏")
+        else:
+            errors.extend(f"{extraction.source_path.name}：{message}" for message in missing_declarations)
+            basis = "核对证据不足或不一致"
+
     if errors:
         status = "核对失败"
     elif actual_count == 0:
@@ -83,4 +100,6 @@ def validate_statement(extraction: StatementExtraction) -> ValidationReport:
         balance_break_rows=balance_break_rows,
         control_checks=control_checks,
         errors=errors,
+        warnings=warnings,
+        validation_basis=basis,
     )

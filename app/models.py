@@ -25,6 +25,7 @@ class Transaction:
     extraction_method: str
     operator: str = ""
     transaction_org_code: str = ""
+    source_row: int | None = None
 
 
 @dataclass(slots=True)
@@ -49,6 +50,11 @@ class StatementExtraction:
     statement_end: date | None = None
     period_page: int | None = None
     currency: str = ""
+    # Only a local parser that accounted for every page/row may supply this evidence.
+    text_rows_complete: bool = False
+    serial_number_required: bool = True
+    warnings: list[str] = field(default_factory=list)
+    control_pages: list[str] | None = None
 
 
 @dataclass(slots=True)
@@ -60,6 +66,8 @@ class ValidationReport:
     balance_break_rows: list[int] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     control_checks: dict = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
+    validation_basis: str = ""
 
 
 @dataclass(slots=True)

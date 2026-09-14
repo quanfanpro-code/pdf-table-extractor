@@ -6,6 +6,7 @@ from typing import Callable
 from app.config import ModelSettings
 from app.models import BatchResult, ProcessedStatement, ValidationReport
 from app.routing import process_pdf
+from app.progress import progress_scope
 
 
 ProgressCallback = Callable[[int, int, str], None]
@@ -59,7 +60,9 @@ def process_batch(
         if progress:
             progress(index - 1, total, f"正在处理：{path.name}")
         try:
-            statement = process_pdf(path, settings, force_ai=force_ai)
+            callback = (lambda message: progress(index - 1, total, message)) if progress else None
+            with progress_scope(callback):
+                statement = process_pdf(path, settings, force_ai=force_ai)
         except Exception as exc:
             statement = _unexpected_failure(path, exc)
         statements.append(statement)
