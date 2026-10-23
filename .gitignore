@@ -4,3 +4,5 @@ __pycache__/
 提取结果/
 pdf_hash_before.txt
 pdf_hash_after.txt
+# 一次性模型测速脚本，不入库
+probe_latency.py
